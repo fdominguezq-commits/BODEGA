@@ -1,1 +1,1251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bodega · Control de Existencias</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #EDEAE1;
+    --panel: #F7F5EF;
+    --ink: #23281F;
+    --ink-soft: #5B5F53;
+    --line: #D8D3C4;
+    --green: #3E6B4A;
+    --green-soft: #E4EBDE;
+    --orange: #C7581F;
+    --orange-soft: #F6E3D3;
+    --red: #A5342A;
+    --red-soft: #F3DEDA;
+    --amber: #A6791F;
+    --amber-soft: #F2E7CE;
+    --radius: 3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3, .display{
+    font-family:'Space Grotesk', sans-serif;
+    letter-spacing:-0.01em;
+  }
+
+  /* ---------- layout shell ---------- */
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 80px;}
+
+  header.top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:16px;
+    border-bottom:2px solid var(--ink);
+    padding-bottom:16px;
+    margin-bottom:22px;
+  }
+  header.top .title-block h1{
+    font-size:26px;
+    font-weight:700;
+    margin:0 0 4px;
+  }
+  header.top .title-block .sub{
+    color:var(--ink-soft);
+    font-size:13px;
+  }
+  .today-chip{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;
+    background:var(--ink);
+    color:var(--bg);
+    padding:6px 10px;
+    border-radius:var(--radius);
+    white-space:nowrap;
+  }
+
+  /* ---------- summary strip ---------- */
+  .summary{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    margin-bottom:22px;
+  }
+  .summary .cell{
+    background:var(--panel);
+    padding:14px 16px;
+  }
+  .summary .cell .num{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:26px;
+    font-weight:700;
+    line-height:1;
+  }
+  .summary .cell .lbl{
+    color:var(--ink-soft);
+    font-size:11.5px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    margin-top:6px;
+  }
+  .summary .cell.warn .num{color:var(--orange);}
+  .summary .cell.bad .num{color:var(--red);}
+
+  /* ---------- controls ---------- */
+  .controls{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+    margin-bottom:14px;
+  }
+  input[type="text"], select{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:8px 10px;
+    color:var(--ink);
+  }
+  input[type="text"]{flex:1;min-width:180px;}
+  input[type="text"]:focus, select:focus, input[type="number"]:focus, input[type="date"]:focus{
+    outline:none;border-color:var(--ink);
+  }
+  .btn{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;
+    font-weight:500;
+    border:1px solid var(--ink);
+    background:transparent;
+    color:var(--ink);
+    padding:8px 13px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .btn:hover{background:var(--ink);color:var(--bg);}
+  .btn.primary{background:var(--green);border-color:var(--green);color:#fff;}
+  .btn.primary:hover{background:#2f5539;}
+  .btn.danger{border-color:var(--red);color:var(--red);}
+  .btn.danger:hover{background:var(--red);color:#fff;}
+  .btn.ghost{border-color:var(--line);color:var(--ink-soft);}
+  .btn.ghost:hover{background:var(--panel);color:var(--ink);}
+  .btn:disabled{opacity:.35;cursor:not-allowed;}
+  .btn:disabled:hover{background:transparent;color:var(--ink);}
+
+  .chipset{display:flex;gap:6px;flex-wrap:wrap;}
+  .chip{
+    font-size:11.5px;
+    padding:6px 10px;
+    border:1px solid var(--line);
+    border-radius:20px;
+    cursor:pointer;
+    color:var(--ink-soft);
+    background:var(--panel);
+  }
+  .chip.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+
+  /* ---------- table ---------- */
+  .table-scroll{
+    border:1px solid var(--line);
+    background:var(--panel);
+    overflow-x:auto;
+  }
+  table{width:100%;border-collapse:collapse;min-width:920px;}
+  thead th{
+    text-align:left;
+    font-family:'Space Grotesk',sans-serif;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--ink-soft);
+    border-bottom:1px solid var(--ink);
+    padding:10px 12px;
+    position:sticky;top:0;background:var(--panel);
+  }
+  tbody td{
+    padding:10px 12px;
+    border-bottom:1px solid var(--line);
+    vertical-align:middle;
+    font-size:13px;
+  }
+  tbody tr:hover{background:var(--green-soft);}
+  .prod-name{font-weight:600;}
+  .prod-loc{color:var(--ink-soft);font-size:11.5px;}
+  .stock-num{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:16px;
+  }
+  .stock-num.zero{color:var(--red);}
+  .stock-num.low{color:var(--orange);}
+  .badge{
+    display:inline-block;
+    font-size:10.5px;
+    padding:3px 8px;
+    border-radius:20px;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .badge.ok{background:var(--green-soft);color:var(--green);}
+  .badge.soon{background:var(--amber-soft);color:var(--amber);}
+  .badge.expired{background:var(--red-soft);color:var(--red);}
+  .badge.none{background:var(--line);color:var(--ink-soft);}
+  .row-actions{display:flex;gap:6px;}
+  .row-actions button{padding:6px 9px;font-size:11.5px;}
+  tr.flash{animation:flash 900ms ease;}
+  @keyframes flash{
+    0%{background:var(--amber-soft);}
+    100%{background:transparent;}
+  }
+  .empty-row td{text-align:center;color:var(--ink-soft);padding:30px;}
+
+  /* ---------- panels below ---------- */
+  .lower{
+    display:grid;
+    grid-template-columns:1.1fr .9fr;
+    gap:20px;
+    margin-top:26px;
+  }
+  @media(max-width:860px){.lower{grid-template-columns:1fr;}}
+  .panel{border:1px solid var(--line);background:var(--panel);}
+  .panel h2{
+    font-size:14px;
+    margin:0;
+    padding:12px 14px;
+    border-bottom:1px solid var(--line);
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .panel .body{padding:14px;}
+
+  .hist-item{
+    display:flex;justify-content:space-between;gap:10px;
+    padding:9px 0;
+    border-bottom:1px solid var(--line);
+    font-size:12.5px;
+  }
+  .hist-item:last-child{border-bottom:none;}
+  .hist-item .left{flex:1;}
+  .hist-item .prod{font-weight:600;}
+  .hist-item .meta{color:var(--ink-soft);font-size:11px;margin-top:2px;}
+  .tag{
+    font-size:10.5px;font-weight:700;padding:3px 7px;border-radius:3px;
+    height:fit-content;white-space:nowrap;
+  }
+  .tag.sal{background:var(--orange-soft);color:var(--orange);}
+  .tag.ent{background:var(--green-soft);color:var(--green);}
+  .qty-delta{font-family:'Space Grotesk',sans-serif;font-weight:700;}
+
+  .foot-actions{
+    display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;
+    border-top:1px solid var(--line);padding-top:16px;
+  }
+  .foot-note{color:var(--ink-soft);font-size:11.5px;margin-top:10px;line-height:1.6;}
+
+  /* ---------- modal ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(35,40,31,.55);
+    display:none;align-items:center;justify-content:center;
+    padding:16px;z-index:50;
+  }
+  .overlay.show{display:flex;}
+  .modal{
+    background:var(--panel);border:1px solid var(--ink);
+    width:100%;max-width:420px;
+  }
+  .modal h3{
+    margin:0;padding:14px 16px;border-bottom:1px solid var(--line);
+    font-size:15px;display:flex;justify-content:space-between;align-items:center;
+  }
+  .modal .body{padding:16px;}
+  .field{margin-bottom:13px;}
+  .field label{
+    display:block;font-size:11px;text-transform:uppercase;
+    letter-spacing:.04em;color:var(--ink-soft);margin-bottom:5px;
+  }
+  .field input[type="number"], .field input[type="date"], .field input[type="text"]{
+    width:100%;padding:9px 10px;
+  }
+  .movtype{display:flex;gap:8px;margin-bottom:14px;}
+  .movtype button{flex:1;padding:10px;font-size:12.5px;font-weight:600;}
+  .movtype button.on.sal{background:var(--orange);border-color:var(--orange);color:#fff;}
+  .movtype button.on.ent{background:var(--green);border-color:var(--green);color:#fff;}
+  .stock-preview{
+    font-size:12px;color:var(--ink-soft);margin-top:-4px;margin-bottom:14px;
+  }
+  .stock-preview b{color:var(--ink);}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px;}
+  .close-x{cursor:pointer;color:var(--ink-soft);font-size:18px;line-height:1;background:none;border:none;}
+
+  .toast{
+    position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:var(--bg);
+    padding:10px 18px;border-radius:var(--radius);
+    font-size:12.5px;opacity:0;pointer-events:none;
+    transition:opacity .25s ease, transform .25s ease;
+    z-index:60;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+
+  ::-webkit-scrollbar{height:8px;width:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+
+  /* ---------- ticket de impresión 80mm ---------- */
+  #printArea{display:none;}
+  @media print{
+    body *{visibility:hidden;}
+    #printArea, #printArea *{visibility:visible;}
+    #printArea{
+      display:block;
+      position:absolute;top:0;left:0;
+      width:80mm;
+      padding:4mm 3mm;
+      font-family:'IBM Plex Mono', monospace;
+      color:#000;
+    }
+    @page{ size:80mm auto; margin:0; }
+    #printArea .t-tienda{font-size:12px;font-weight:700;text-align:center;margin-bottom:2mm;}
+    #printArea .t-linea{border-top:1px dashed #000;margin:2mm 0;}
+    #printArea .t-fecha{font-size:9.5px;text-align:center;margin-bottom:3mm;}
+    #printArea .t-tipo{font-size:10px;text-align:center;font-weight:700;letter-spacing:.06em;margin-bottom:3mm;}
+    #printArea .t-producto{font-size:15px;font-weight:700;text-align:center;line-height:1.3;margin-bottom:2mm;word-break:break-word;}
+    #printArea .t-detalle{font-size:10px;text-align:center;color:#333;margin-bottom:3mm;}
+    #printArea .t-cantidad-lbl{font-size:9.5px;text-align:center;letter-spacing:.08em;}
+    #printArea .t-cantidad{font-size:34px;font-weight:700;text-align:center;line-height:1.1;margin:1mm 0 3mm;}
+    #printArea .t-nota{font-size:9.5px;text-align:center;color:#333;margin-bottom:2mm;}
+    #printArea .t-lista-item{
+      display:flex;justify-content:space-between;gap:6px;
+      font-size:11px;padding:2mm 0;border-bottom:1px dashed #999;
+    }
+    #printArea .t-lista-item .li-nombre{font-weight:700;flex:1;}
+    #printArea .t-lista-item .li-meta{font-size:9px;color:#333;font-weight:400;display:block;}
+    #printArea .t-lista-item .li-stock{font-weight:700;font-size:13px;white-space:nowrap;}
+    #printArea .t-total{font-size:10.5px;text-align:center;font-weight:700;margin-top:3mm;}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="top">
+    <div class="title-block">
+      <h1>📦 Bodega — Control de Existencias</h1>
+      <div class="sub">Agroinsumos · registro de entradas y salidas por producto</div>
+    </div>
+    <div class="today-chip" id="todayChip"></div>
+  </header>
+
+  <div class="summary">
+    <div class="cell">
+      <div class="num" id="sumProductos">0</div>
+      <div class="lbl">Productos</div>
+    </div>
+    <div class="cell">
+      <div class="num" id="sumUnidades">0</div>
+      <div class="lbl">Unidades en bodega</div>
+    </div>
+    <div class="cell warn">
+      <div class="num" id="sumProximos">0</div>
+      <div class="lbl">Próx. a caducar (60 días)</div>
+    </div>
+    <div class="cell bad">
+      <div class="num" id="sumCaducados">0</div>
+      <div class="lbl">Caducados</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <input type="text" id="searchBox" placeholder="Buscar producto, percha o fila…">
+    <select id="perchaFilter">
+      <option value="">Todas las perchas</option>
+    </select>
+    <button class="btn ghost" id="btnPrintPercha">🖨 Imprimir percha</button>
+    <button class="btn primary" id="btnAddProduct">+ Agregar producto</button>
+    <div class="chipset" id="estadoFilter">
+      <div class="chip active" data-val="">Todos</div>
+      <div class="chip" data-val="ok">Vigente</div>
+      <div class="chip" data-val="soon">Próximo</div>
+      <div class="chip" data-val="expired">Caducado</div>
+      <div class="chip" data-val="zero">Sin stock</div>
+    </div>
+  </div>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Ubicación</th>
+          <th>Medida</th>
+          <th>Stock</th>
+          <th>Caducidad</th>
+          <th>Estado</th>
+          <th>Movimiento</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="lower">
+    <div class="panel">
+      <h2>Historial de movimientos <span style="font-weight:400;color:var(--ink-soft);font-size:11px;" id="histCount"></span></h2>
+      <div class="body" id="histBody" style="max-height:420px;overflow-y:auto;">
+        <div class="foot-note">Aún no hay movimientos registrados en esta sesión.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Alertas de caducidad</h2>
+      <div class="body" id="alertBody" style="max-height:420px;overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <div class="foot-actions">
+    <button class="btn primary" id="btnExport">⬇ Guardar estado (JSON)</button>
+    <button class="btn ghost" id="btnImport">⬆ Cargar estado guardado</button>
+    <input type="file" id="fileInput" accept="application/json" style="display:none;">
+    <button class="btn ghost" id="btnExportHist">⬇ Exportar historial (CSV)</button>
+    <button class="btn primary" id="btnExportPdf">⬇ Descargar PDF</button>
+    <button class="btn danger" id="btnReset">↺ Reiniciar al inventario original</button>
+  </div>
+  <div class="foot-note">
+    Esta página guarda los cambios solo en la sesión actual del navegador. Antes de cerrar,
+    usa <b>«Guardar estado»</b> para descargar un archivo JSON — y la próxima vez usa <b>«Cargar estado guardado»</b>
+    para continuar exactamente donde quedaste, sin perder el historial.
+  </div>
+
+</div>
+
+<!-- Modal de movimiento -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3><span id="modalTitle">Registrar movimiento</span><button class="close-x" id="modalClose">✕</button></h3>
+    <div class="body">
+      <div class="movtype">
+        <button type="button" id="btnSalida" class="sal">↓ Salida</button>
+        <button type="button" id="btnEntrada" class="ent">↑ Entrada</button>
+      </div>
+      <div class="field">
+        <label>Cantidad</label>
+        <input type="number" id="movCantidad" min="1" step="1" placeholder="0">
+      </div>
+      <div class="field">
+        <label>Fecha</label>
+        <input type="date" id="movFecha">
+      </div>
+      <div class="field">
+        <label>Nota (opcional)</label>
+        <input type="text" id="movNota" placeholder="ej. cliente, finca, motivo…">
+      </div>
+      <div class="stock-preview" id="stockPreview"></div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="movCancel">Cancelar</button>
+        <button class="btn primary" id="movConfirm">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de nuevo producto -->
+<div class="overlay" id="overlayAdd">
+  <div class="modal">
+    <h3><span>Agregar producto</span><button class="close-x" id="addClose">✕</button></h3>
+    <div class="body">
+      <div class="field">
+        <label>Nombre del producto</label>
+        <input type="text" id="addProducto" placeholder="ej. FUNGISEI">
+      </div>
+      <div class="field">
+        <label>Percha</label>
+        <select id="addPerchaSelect">
+          <option value="">— Elegir percha existente —</option>
+          <option value="__nueva__">+ Nueva percha…</option>
+        </select>
+        <input type="text" id="addPerchaNueva" placeholder="Nombre de la nueva percha, ej. PERCHA 4" style="margin-top:8px;display:none;">
+      </div>
+      <div class="field">
+        <label>Fila (opcional)</label>
+        <input type="text" id="addFila" placeholder="ej. P4 - F1">
+      </div>
+      <div class="field">
+        <label>Medida</label>
+        <input type="text" id="addMedida" placeholder="ej. 500ML, 1KG, GALON…">
+      </div>
+      <div class="field">
+        <label>Stock inicial</label>
+        <input type="number" id="addStock" min="0" step="1" placeholder="0">
+      </div>
+      <div class="field">
+        <label>Fecha de caducidad (opcional)</label>
+        <input type="date" id="addCaducidad">
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="addCancel">Cancelar</button>
+        <button class="btn primary" id="addConfirm">Agregar producto</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de editar producto -->
+<div class="overlay" id="overlayEdit">
+  <div class="modal">
+    <h3><span>Editar producto</span><button class="close-x" id="editClose">✕</button></h3>
+    <div class="body">
+      <div class="field">
+        <label>Nombre del producto</label>
+        <input type="text" id="editProducto" placeholder="ej. FUNGISEI">
+      </div>
+      <div class="field">
+        <label>Percha</label>
+        <select id="editPerchaSelect">
+          <option value="__nueva__">+ Nueva percha…</option>
+        </select>
+        <input type="text" id="editPerchaNueva" placeholder="Nombre de la nueva percha, ej. PERCHA 4" style="margin-top:8px;display:none;">
+      </div>
+      <div class="field">
+        <label>Fila (opcional)</label>
+        <input type="text" id="editFila" placeholder="ej. P4 - F1">
+      </div>
+      <div class="field">
+        <label>Medida</label>
+        <input type="text" id="editMedida" placeholder="ej. 500ML, 1KG, GALON…">
+      </div>
+      <div class="field">
+        <label>Stock</label>
+        <input type="number" id="editStock" min="0" step="1" placeholder="0">
+      </div>
+      <div class="field">
+        <label>Fecha de caducidad (opcional)</label>
+        <input type="date" id="editCaducidad">
+      </div>
+      <div class="modal-actions" style="justify-content:space-between;">
+        <button class="btn danger" id="editDelete">🗑 Eliminar producto</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn ghost" id="editCancel">Cancelar</button>
+          <button class="btn primary" id="editConfirm">Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div id="printArea">
+  <div class="t-tienda">AGROINSUMOS · BODEGA</div>
+  <div class="t-fecha" id="ticketFecha"></div>
+  <div class="t-linea"></div>
+  <div class="t-tipo" id="ticketTipo">SALIDA DE PRODUCTO</div>
+
+  <div id="ticketSingle">
+    <div class="t-producto" id="ticketProducto"></div>
+    <div class="t-detalle" id="ticketDetalle"></div>
+    <div class="t-linea"></div>
+    <div class="t-cantidad-lbl">CANTIDAD</div>
+    <div class="t-cantidad" id="ticketCantidad"></div>
+    <div class="t-linea"></div>
+    <div class="t-nota" id="ticketNota"></div>
+  </div>
+
+  <div id="ticketLista" style="display:none;">
+    <div id="ticketListaItems"></div>
+    <div class="t-linea"></div>
+    <div class="t-total" id="ticketListaTotal"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>
+/* ---------------- datos iniciales (extraídos de Inventario_Bodega_Final.xlsx) ---------------- */
+const SEED = [{"id": 1, "percha": "PERCHA 1", "fila": "P1 - F1", "producto": "HIGHP CROPS", "medida": "500ML", "stock": 17, "caducidad": "01/08/2028", "estado": "✅ VIGENTE"}, {"id": 2, "percha": "PERCHA 1", "fila": "P1 - F1", "producto": "COMPLEFOL INICIO", "medida": "1KG", "stock": 6, "caducidad": "", "estado": ""}, {"id": 3, "percha": "PERCHA 1", "fila": "P1 - F2", "producto": "AZUFROL", "medida": "1KG", "stock": 20, "caducidad": "01/09/2027", "estado": "✅ VIGENTE"}, {"id": 4, "percha": "PERCHA 1", "fila": "P1 - F2", "producto": "DOMINAL 720", "medida": "500ML", "stock": 9, "caducidad": "01/02/2028", "estado": "✅ VIGENTE"}, {"id": 5, "percha": "PERCHA 1", "fila": "P1 - F3", "producto": "KAÑON", "medida": "500ML", "stock": 10, "caducidad": "S/F", "estado": ""}, {"id": 6, "percha": "PERCHA 1", "fila": "P1 - F3", "producto": "KYLATE", "medida": "250ML", "stock": 9, "caducidad": "16/11/2028", "estado": "✅ VIGENTE"}, {"id": 7, "percha": "PERCHA 1", "fila": "P1 - F3", "producto": "SENATOR", "medida": "1L", "stock": 5, "caducidad": "19/09/2027", "estado": "✅ VIGENTE"}, {"id": 8, "percha": "PERCHA 1", "fila": "P1 - F4", "producto": "ALTERNO 60 WP", "medida": "16G", "stock": 10, "caducidad": "16/09/2027", "estado": "✅ VIGENTE"}, {"id": 9, "percha": "PERCHA 1", "fila": "P1 - F4", "producto": "KILLER", "medida": "1L", "stock": 3, "caducidad": "S/F", "estado": ""}, {"id": 10, "percha": "PERCHA 1", "fila": "P1 - F4", "producto": "PAMEX", "medida": "1L", "stock": 1, "caducidad": "01/07/2027", "estado": "✅ VIGENTE"}, {"id": 11, "percha": "PERCHA 1", "fila": "P1-F4", "producto": "GATILLERO", "medida": "1L", "stock": 7, "caducidad": "17/07/2028", "estado": "✅ VIGENTE"}, {"id": 12, "percha": "PERCHA 1", "fila": "P1 - F4", "producto": "PAMEX", "medida": "500ML", "stock": 4, "caducidad": "01/07/2027", "estado": "✅ VIGENTE"}, {"id": 13, "percha": "PERCHA 1", "fila": "P1 - F4", "producto": "GLUFONE", "medida": "1L", "stock": 12, "caducidad": "19/10/2027", "estado": "✅ VIGENTE"}, {"id": 14, "percha": "PERCHA 1", "fila": "P1-F2", "producto": "INDUCPRO MAGNESIO", "medida": "1L", "stock": 6, "caducidad": "15/06/2028", "estado": "✅ VIGENTE"}, {"id": 15, "percha": "PERCHA 1", "fila": "P1-F2", "producto": "INDUCFLOR", "medida": "500ML", "stock": 30, "caducidad": "20/10/2028", "estado": "✅ VIGENTE"}, {"id": 16, "percha": "PERCHA 1", "fila": "P1 - F4", "producto": "ZOIL", "medida": "1L", "stock": 10, "caducidad": "19/09/2028", "estado": "✅ VIGENTE"}, {"id": 17, "percha": "PERCHA 1", "fila": "", "producto": "INDUCPRO CALCIO", "medida": "1L", "stock": 7, "caducidad": "19/03/2028", "estado": "✅ VIGENTE"}, {"id": 18, "percha": "PERCHA 2", "fila": "P2 - F1", "producto": "METABOLINK", "medida": "250CC", "stock": 20, "caducidad": "29/09/2027", "estado": "✅ VIGENTE"}, {"id": 19, "percha": "PERCHA 2", "fila": "P2 - F1", "producto": "FERTI-ORGAN", "medida": "GALON", "stock": 12, "caducidad": "", "estado": "✅ VIGENTE"}, {"id": 20, "percha": "PERCHA 2", "fila": "P2 - F2", "producto": "ESLABON RAIZ", "medida": "500ML", "stock": 10, "caducidad": "01/03/2028", "estado": "✅ VIGENTE"}, {"id": 21, "percha": "PERCHA 2", "fila": "P2 - F2", "producto": "FUNGIL", "medida": "500ML", "stock": 7, "caducidad": "26/02/2027", "estado": "✅ VIGENTE"}, {"id": 22, "percha": "PERCHA 2", "fila": "", "producto": "CUSAMIZN", "medida": "500ML", "stock": 23, "caducidad": "20/09/2028", "estado": "✅ VIGENTE"}, {"id": 23, "percha": "PERCHA 2", "fila": "", "producto": "CUSAMIZN", "medida": "250ML", "stock": 18, "caducidad": "22/09/2028", "estado": "✅ VIGENTE"}, {"id": 24, "percha": "PERCHA 2", "fila": "P2 - F3", "producto": "COMBO FINALIZADOR AGROPROECO", "medida": "—", "stock": 10, "caducidad": "01/08/2027", "estado": "✅ VIGENTE"}, {"id": 25, "percha": "PERCHA 2", "fila": "", "producto": "OZOIL", "medida": "500ML", "stock": 20, "caducidad": "20/10/2028", "estado": "✅ VIGENTE"}, {"id": 26, "percha": "PERCHA 2", "fila": "P2 - F3", "producto": "LEOSIL PREMIUM", "medida": "1L", "stock": 15, "caducidad": "06/09/2028", "estado": "✅ VIGENTE"}, {"id": 27, "percha": "PERCHA 2", "fila": "", "producto": "ESLABON CACAO", "medida": "500ML", "stock": 19, "caducidad": "29/10/2028", "estado": "✅ VIGENTE"}, {"id": 28, "percha": "PERCHA 3", "fila": "P3 - F1", "producto": "INDUCFLOR", "medida": "1L", "stock": 23, "caducidad": "20/10/2028", "estado": "✅ VIGENTE"}, {"id": 29, "percha": "PERCHA 3", "fila": "P3 - F1", "producto": "COMBO NEDERAGRO", "medida": "KIT", "stock": 11, "caducidad": "06/06/2028", "estado": "✅ VIGENTE"}, {"id": 30, "percha": "PERCHA 3", "fila": "P3 - F1", "producto": "CONTACTO", "medida": "1L", "stock": 10, "caducidad": "08/07/2027", "estado": "✅ VIGENTE"}, {"id": 31, "percha": "PERCHA 3", "fila": "P3 - F1", "producto": "SHY", "medida": "500ML", "stock": 6, "caducidad": "07/07/2028", "estado": "✅ VIGENTE"}, {"id": 32, "percha": "PERCHA 3", "fila": "P3 - F2", "producto": "SHY", "medida": "1L", "stock": 3, "caducidad": "01/06/2028", "estado": "✅ VIGENTE"}, {"id": 33, "percha": "PERCHA 3", "fila": "P3 - F2", "producto": "MAIX", "medida": "500G", "stock": 5, "caducidad": "01/01/2028", "estado": "✅ VIGENTE"}, {"id": 34, "percha": "PERCHA 3", "fila": "P3 - F2", "producto": "MUERZA VERDE", "medida": "1KG", "stock": 10, "caducidad": "01/05/2028", "estado": "✅ VIGENTE"}, {"id": 35, "percha": "PERCHA 3", "fila": "P3 - F3", "producto": "MOSKITION", "medida": "500G", "stock": 9, "caducidad": "08/07/2027", "estado": "✅ VIGENTE"}, {"id": 36, "percha": "PERCHA 3", "fila": "P3 - F3", "producto": "FUNGISEI", "medida": "500ML", "stock": 6, "caducidad": "01/07/2027", "estado": "✅ VIGENTE"}, {"id": 37, "percha": "PERCHA 3", "fila": "P3 - F1", "producto": "BIOBONB", "medida": "1L", "stock": 40, "caducidad": "31/01/2029", "estado": "✅ VIGENTE"}];
+
+const STORAGE_STATE_KEY = 'bodega_state_v1';
+let productos = [];
+let historial = [];
+let movActivo = null; // {id, tipo}
+let filtroEstado = '';
+
+/* ---------------- utilidades de fecha ---------------- */
+function parseDDMMYYYY(s){
+  if(!s) return null;
+  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m) return null;
+  return new Date(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1]));
+}
+function todayStr(){
+  const d = new Date();
+  return d.toLocaleDateString('es-EC', {weekday:'long', day:'2-digit', month:'long', year:'numeric'});
+}
+function fmtDate(d){
+  if(!(d instanceof Date)) d = new Date(d);
+  return d.toLocaleDateString('es-EC', {day:'2-digit', month:'short', year:'numeric'});
+}
+function isoToday(){
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+
+function estadoCaducidad(p){
+  const d = parseDDMMYYYY(p.caducidad);
+  if(!d) return {key:'none', label: p.caducidad ? p.caducidad : 'Sin fecha'};
+  const now = new Date(); now.setHours(0,0,0,0);
+  const diffDays = Math.round((d - now) / 86400000);
+  if(diffDays < 0) return {key:'expired', label:'Caducado', diffDays};
+  if(diffDays <= 60) return {key:'soon', label:`Vence en ${diffDays} d`, diffDays};
+  return {key:'ok', label:'Vigente', diffDays};
+}
+
+/* ---------------- estado inicial ---------------- */
+function loadSeed(){
+  productos = JSON.parse(JSON.stringify(SEED));
+  historial = [];
+}
+loadSeed();
+
+/* ---------------- render tabla ---------------- */
+function poblarFiltroPercha(){
+  const sel = document.getElementById('perchaFilter');
+  const perchas = [...new Set(productos.map(p=>p.percha))].sort();
+  sel.innerHTML = '<option value="">Todas las perchas</option>' +
+    perchas.map(p=>`<option value="${p}">${p}</option>`).join('');
+
+  const addSel = document.getElementById('addPerchaSelect');
+  if(addSel){
+    addSel.innerHTML = '<option value="">— Elegir percha existente —</option>' +
+      perchas.map(p=>`<option value="${p}">${p}</option>`).join('') +
+      '<option value="__nueva__">+ Nueva percha…</option>';
+  }
+}
+
+function render(){
+  renderSummary();
+  renderTable();
+  renderHistorial();
+  renderAlertas();
+}
+
+function renderSummary(){
+  const totalProd = productos.length;
+  const totalUnid = productos.reduce((a,p)=>a+p.stock,0);
+  let proximos=0, caducados=0;
+  productos.forEach(p=>{
+    const e = estadoCaducidad(p);
+    if(e.key==='soon') proximos++;
+    if(e.key==='expired') caducados++;
+  });
+  document.getElementById('sumProductos').textContent = totalProd;
+  document.getElementById('sumUnidades').textContent = totalUnid;
+  document.getElementById('sumProximos').textContent = proximos;
+  document.getElementById('sumCaducados').textContent = caducados;
+}
+
+function renderTable(){
+  const body = document.getElementById('tableBody');
+  const search = document.getElementById('searchBox').value.trim().toLowerCase();
+  const perchaSel = document.getElementById('perchaFilter').value;
+
+  let rows = productos.filter(p=>{
+    if(perchaSel && p.percha !== perchaSel) return false;
+    if(search){
+      const hay = (p.producto+' '+p.percha+' '+p.fila+' '+p.medida).toLowerCase();
+      if(!hay.includes(search)) return false;
+    }
+    if(filtroEstado){
+      if(filtroEstado==='zero'){ if(p.stock>0) return false; }
+      else{
+        const e = estadoCaducidad(p);
+        if(e.key !== filtroEstado) return false;
+      }
+    }
+    return true;
+  });
+
+  rows.sort((a,b)=> a.percha.localeCompare(b.percha) || a.producto.localeCompare(b.producto));
+
+  if(rows.length===0){
+    body.innerHTML = `<tr class="empty-row"><td colspan="7">No se encontraron productos con ese filtro.</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = rows.map(p=>{
+    const e = estadoCaducidad(p);
+    const badgeClass = e.key;
+    const stockClass = p.stock===0 ? 'zero' : (p.stock<=5 ? 'low' : '');
+    return `
+    <tr data-id="${p.id}">
+      <td>
+        <div class="prod-name">${escapeHtml(p.producto)}</div>
+      </td>
+      <td><span class="prod-loc">${escapeHtml(p.percha)}${p.fila? ' · '+escapeHtml(p.fila):''}</span></td>
+      <td>${escapeHtml(p.medida||'—')}</td>
+      <td><span class="stock-num ${stockClass}">${p.stock}</span></td>
+      <td>${p.caducidad ? escapeHtml(p.caducidad) : '<span class="prod-loc">—</span>'}</td>
+      <td><span class="badge ${badgeClass}">${e.label}</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="btn danger" data-action="salida" data-id="${p.id}">↓ Salida</button>
+          <button class="btn primary" data-action="entrada" data-id="${p.id}">↑ Entrada</button>
+          <button class="btn ghost" data-action="editar" data-id="${p.id}">✎ Editar</button>
+          <button class="btn ghost" data-action="imprimir" data-id="${p.id}">🖨 Ticket</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderHistorial(){
+  const body = document.getElementById('histBody');
+  document.getElementById('histCount').textContent = historial.length ? `(${historial.length})` : '';
+  if(historial.length===0){
+    body.innerHTML = `<div class="foot-note">Aún no hay movimientos registrados en esta sesión.</div>`;
+    return;
+  }
+  const items = [...historial].sort((a,b)=> b.ts - a.ts);
+  body.innerHTML = items.map(h=>{
+    const tagClass = h.tipo==='salida' ? 'sal' : 'ent';
+    const tagLabel = h.tipo==='salida' ? 'SALIDA' : 'ENTRADA';
+    const sign = h.tipo==='salida' ? '−' : '+';
+    return `
+    <div class="hist-item">
+      <div class="left">
+        <div class="prod">${escapeHtml(h.producto)}</div>
+        <div class="meta">${fmtDate(h.fecha)}${h.nota ? ' · '+escapeHtml(h.nota) : ''}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+        <span class="tag ${tagClass}">${tagLabel}</span>
+        <span class="qty-delta">${sign}${h.cantidad}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderAlertas(){
+  const body = document.getElementById('alertBody');
+  const items = productos
+    .map(p=>({p, e:estadoCaducidad(p)}))
+    .filter(x=> x.e.key==='expired' || x.e.key==='soon')
+    .sort((a,b)=> (a.e.diffDays??0) - (b.e.diffDays??0));
+
+  if(items.length===0){
+    body.innerHTML = `<div class="foot-note">No hay productos próximos a caducar ni caducados. ✅</div>`;
+    return;
+  }
+  body.innerHTML = items.map(({p,e})=>{
+    const badgeClass = e.key;
+    return `
+    <div class="hist-item">
+      <div class="left">
+        <div class="prod">${escapeHtml(p.producto)}</div>
+        <div class="meta">${escapeHtml(p.percha)}${p.fila? ' · '+escapeHtml(p.fila):''} · ${p.stock} unid.</div>
+      </div>
+      <span class="badge ${badgeClass}">${e.label}</span>
+    </div>`;
+  }).join('');
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ---------------- modal de movimiento ---------------- */
+const overlay = document.getElementById('overlay');
+const movCantidad = document.getElementById('movCantidad');
+const movFecha = document.getElementById('movFecha');
+const movNota = document.getElementById('movNota');
+const stockPreview = document.getElementById('stockPreview');
+const btnSalida = document.getElementById('btnSalida');
+const btnEntrada = document.getElementById('btnEntrada');
+
+function abrirModal(id, tipo){
+  const p = productos.find(x=>x.id===id);
+  if(!p) return;
+  movActivo = {id, tipo};
+  document.getElementById('modalTitle').textContent = `${p.producto} — ${p.percha}${p.fila? ' · '+p.fila:''}`;
+  movCantidad.value = '';
+  movFecha.value = isoToday();
+  movNota.value = '';
+  setTipo(tipo);
+  overlay.classList.add('show');
+  movCantidad.focus();
+}
+function setTipo(tipo){
+  movActivo.tipo = tipo;
+  btnSalida.classList.toggle('on', tipo==='salida');
+  btnSalida.classList.remove('sal'); btnSalida.classList.add('sal');
+  btnEntrada.classList.toggle('on', tipo==='entrada');
+  actualizarPreview();
+}
+function actualizarPreview(){
+  const p = productos.find(x=>x.id===movActivo.id);
+  const cant = parseInt(movCantidad.value)||0;
+  let nuevo = p.stock;
+  if(movActivo.tipo==='salida') nuevo -= cant;
+  else nuevo += cant;
+  const sinStock = movActivo.tipo==='salida' && cant > p.stock;
+  stockPreview.innerHTML = `Stock actual: <b>${p.stock}</b> → nuevo stock: <b>${sinStock? 0 : nuevo}</b>` +
+    (sinStock ? ` <span style="color:var(--red)">(no hay suficiente stock, se ajustará a 0)</span>` : '');
+}
+btnSalida.addEventListener('click', ()=> setTipo('salida'));
+btnEntrada.addEventListener('click', ()=> setTipo('entrada'));
+movCantidad.addEventListener('input', actualizarPreview);
+
+function cerrarModal(){
+  overlay.classList.remove('show');
+  movActivo = null;
+}
+document.getElementById('modalClose').addEventListener('click', cerrarModal);
+document.getElementById('movCancel').addEventListener('click', cerrarModal);
+overlay.addEventListener('click', e=>{ if(e.target===overlay) cerrarModal(); });
+
+document.getElementById('movConfirm').addEventListener('click', ()=>{
+  const cant = parseInt(movCantidad.value);
+  if(!cant || cant<=0){ toast('Ingresa una cantidad válida'); return; }
+  if(!movFecha.value){ toast('Ingresa una fecha'); return; }
+  const p = productos.find(x=>x.id===movActivo.id);
+  const tipo = movActivo.tipo;
+
+  if(tipo==='salida'){
+    p.stock = Math.max(0, p.stock - cant);
+  }else{
+    p.stock = p.stock + cant;
+  }
+
+  historial.push({
+    id: Date.now()+Math.random(),
+    productoId: p.id,
+    producto: p.producto,
+    tipo,
+    cantidad: cant,
+    fecha: movFecha.value,
+    nota: movNota.value.trim(),
+    ts: Date.now()
+  });
+
+  cerrarModal();
+  render();
+  flashRow(p.id);
+  toast(`${tipo==='salida'?'Salida':'Entrada'} registrada: ${p.producto}`);
+
+  if(tipo==='salida'){
+    imprimirTicket(p, cant, movNota.value.trim());
+  }
+});
+
+/* ---------------- ticket 80mm ---------------- */
+function imprimirTicket(p, cantidad, nota){
+  document.getElementById('ticketSingle').style.display = 'block';
+  document.getElementById('ticketLista').style.display = 'none';
+  document.getElementById('ticketFecha').textContent = todayStr();
+  document.getElementById('ticketTipo').textContent = 'SALIDA DE PRODUCTO';
+  document.getElementById('ticketProducto').textContent = p.producto;
+  document.getElementById('ticketDetalle').textContent = `${p.percha}${p.fila? ' · '+p.fila:''}${p.medida? ' · '+p.medida:''}`;
+  document.getElementById('ticketCantidad').textContent = cantidad;
+  document.getElementById('ticketNota').textContent = nota ? nota : '';
+  window.print();
+}
+
+function imprimirListaPercha(percha){
+  const items = productos
+    .filter(p=>p.percha===percha)
+    .sort((a,b)=> a.producto.localeCompare(b.producto));
+
+  if(items.length===0){
+    toast('No hay productos en esa percha');
+    return;
+  }
+
+  document.getElementById('ticketSingle').style.display = 'none';
+  document.getElementById('ticketLista').style.display = 'block';
+  document.getElementById('ticketFecha').textContent = todayStr();
+  document.getElementById('ticketTipo').textContent = percha;
+
+  const totalUnid = items.reduce((a,p)=>a+p.stock,0);
+  document.getElementById('ticketListaItems').innerHTML = items.map(p=>{
+    const meta = `${p.fila? p.fila+' · ':''}${p.medida||''}`.trim().replace(/^·\s*/,'');
+    return `
+    <div class="t-lista-item">
+      <div class="li-nombre">${escapeHtml(p.producto)}${meta? `<span class="li-meta">${escapeHtml(meta)}</span>`:''}</div>
+      <div class="li-stock">${p.stock}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('ticketListaTotal').textContent = `${items.length} productos · ${totalUnid} unidades`;
+
+  window.print();
+}
+
+document.getElementById('btnPrintPercha').addEventListener('click', ()=>{
+  const percha = document.getElementById('perchaFilter').value;
+  if(!percha){ toast('Primero elige una percha en el filtro de arriba'); return; }
+  imprimirListaPercha(percha);
+});
+
+function flashRow(id){
+  requestAnimationFrame(()=>{
+    const row = document.querySelector(`tr[data-id="${id}"]`);
+    if(row){ row.classList.add('flash'); setTimeout(()=>row.classList.remove('flash'), 900); }
+  });
+}
+
+/* ---------------- delegación de eventos en la tabla ---------------- */
+document.getElementById('tableBody').addEventListener('click', e=>{
+  const btn = e.target.closest('button[data-action]');
+  if(!btn) return;
+  const id = parseInt(btn.dataset.id);
+  if(btn.dataset.action === 'editar'){
+    abrirModalEdit(id);
+  }else if(btn.dataset.action === 'imprimir'){
+    const p = productos.find(x=>x.id===id);
+    if(!p) return;
+    const cantidad = prompt(`Cantidad a imprimir en el ticket para «${p.producto}»:`, '1');
+    if(cantidad===null) return;
+    const cant = parseInt(cantidad);
+    if(!cant || cant<=0){ toast('Ingresa una cantidad válida'); return; }
+    imprimirTicket(p, cant, '');
+  }else{
+    abrirModal(id, btn.dataset.action);
+  }
+});
+
+/* ---------------- filtros ---------------- */
+document.getElementById('searchBox').addEventListener('input', renderTable);
+document.getElementById('perchaFilter').addEventListener('change', renderTable);
+document.getElementById('estadoFilter').addEventListener('click', e=>{
+  const chip = e.target.closest('.chip');
+  if(!chip) return;
+  document.querySelectorAll('#estadoFilter .chip').forEach(c=>c.classList.remove('active'));
+  chip.classList.add('active');
+  filtroEstado = chip.dataset.val;
+  renderTable();
+});
+
+/* ---------------- guardar / cargar / reiniciar ---------------- */
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._h);
+  toast._h = setTimeout(()=> t.classList.remove('show'), 2200);
+}
+
+function descargarArchivo(nombre, contenido, tipo){
+  const blob = new Blob([contenido], {type:tipo});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  const data = {productos, historial, guardadoEn: new Date().toISOString()};
+  descargarArchivo('bodega_estado.json', JSON.stringify(data, null, 2), 'application/json');
+  toast('Estado guardado como bodega_estado.json');
+});
+
+document.getElementById('btnExportHist').addEventListener('click', ()=>{
+  if(historial.length===0){ toast('No hay movimientos para exportar'); return; }
+  const rows = [['Fecha','Producto','Tipo','Cantidad','Nota']];
+  [...historial].sort((a,b)=>a.ts-b.ts).forEach(h=>{
+    rows.push([h.fecha, h.producto, h.tipo, h.cantidad, h.nota||'']);
+  });
+  const csv = rows.map(r=> r.map(c=> `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  descargarArchivo('historial_movimientos.csv', csv, 'text/csv');
+  toast('Historial exportado como CSV');
+});
+
+document.getElementById('btnImport').addEventListener('click', ()=> document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    try{
+      const data = JSON.parse(ev.target.result);
+      if(!Array.isArray(data.productos)) throw new Error('formato inválido');
+      productos = data.productos;
+      historial = Array.isArray(data.historial) ? data.historial : [];
+      poblarFiltroPercha();
+      render();
+      toast('Estado cargado correctamente');
+    }catch(err){
+      toast('El archivo no tiene un formato válido');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+document.getElementById('btnReset').addEventListener('click', ()=>{
+  if(!confirm('Esto reemplaza el stock y borra el historial de esta sesión, volviendo a los datos originales del Excel. ¿Continuar?')) return;
+  loadSeed();
+  poblarFiltroPercha();
+  render();
+  toast('Inventario reiniciado a los valores originales');
+});
+
+/* ---------------- agregar producto ---------------- */
+const overlayAdd = document.getElementById('overlayAdd');
+const addProducto = document.getElementById('addProducto');
+const addPerchaSelect = document.getElementById('addPerchaSelect');
+const addPerchaNueva = document.getElementById('addPerchaNueva');
+const addFila = document.getElementById('addFila');
+const addMedida = document.getElementById('addMedida');
+const addStock = document.getElementById('addStock');
+const addCaducidad = document.getElementById('addCaducidad');
+
+function abrirModalAdd(){
+  addProducto.value = '';
+  addPerchaSelect.value = '';
+  addPerchaNueva.value = '';
+  addPerchaNueva.style.display = 'none';
+  addFila.value = '';
+  addMedida.value = '';
+  addStock.value = '';
+  addCaducidad.value = '';
+  overlayAdd.classList.add('show');
+  addProducto.focus();
+}
+function cerrarModalAdd(){
+  overlayAdd.classList.remove('show');
+}
+document.getElementById('btnAddProduct').addEventListener('click', abrirModalAdd);
+document.getElementById('addClose').addEventListener('click', cerrarModalAdd);
+document.getElementById('addCancel').addEventListener('click', cerrarModalAdd);
+overlayAdd.addEventListener('click', e=>{ if(e.target===overlayAdd) cerrarModalAdd(); });
+
+addPerchaSelect.addEventListener('change', ()=>{
+  addPerchaNueva.style.display = addPerchaSelect.value === '__nueva__' ? 'block' : 'none';
+  if(addPerchaSelect.value === '__nueva__') addPerchaNueva.focus();
+});
+
+function fechaIsoADDMMYYYY(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+document.getElementById('addConfirm').addEventListener('click', ()=>{
+  const nombre = addProducto.value.trim();
+  if(!nombre){ toast('Ingresa el nombre del producto'); addProducto.focus(); return; }
+
+  let percha = addPerchaSelect.value;
+  if(percha === '__nueva__') percha = addPerchaNueva.value.trim();
+  if(!percha){ toast('Elige o escribe una percha'); return; }
+
+  const stock = parseInt(addStock.value) || 0;
+  const caducidadStr = fechaIsoADDMMYYYY(addCaducidad.value);
+  const nuevoId = productos.reduce((max,p)=> Math.max(max,p.id), 0) + 1;
+
+  const nuevoProducto = {
+    id: nuevoId,
+    percha,
+    fila: addFila.value.trim(),
+    producto: nombre,
+    medida: addMedida.value.trim(),
+    stock,
+    caducidad: caducidadStr,
+    estado: ''
+  };
+  productos.push(nuevoProducto);
+
+  if(stock > 0){
+    historial.push({
+      id: Date.now()+Math.random(),
+      productoId: nuevoId,
+      producto: nombre,
+      tipo: 'entrada',
+      cantidad: stock,
+      fecha: isoToday(),
+      nota: 'Producto agregado al inventario',
+      ts: Date.now()
+    });
+  }
+
+  cerrarModalAdd();
+  poblarFiltroPercha();
+  render();
+  flashRow(nuevoId);
+  toast(`Producto agregado: ${nombre} — ${percha}`);
+});
+
+/* ---------------- editar producto ---------------- */
+const overlayEdit = document.getElementById('overlayEdit');
+const editProducto = document.getElementById('editProducto');
+const editPerchaSelect = document.getElementById('editPerchaSelect');
+const editPerchaNueva = document.getElementById('editPerchaNueva');
+const editFila = document.getElementById('editFila');
+const editMedida = document.getElementById('editMedida');
+const editStock = document.getElementById('editStock');
+const editCaducidad = document.getElementById('editCaducidad');
+let editandoId = null;
+
+function fechaDDMMYYYYaISO(s){
+  if(!s) return '';
+  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m) return '';
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
+function poblarPerchaEdit(perchaActual){
+  const perchas = [...new Set(productos.map(p=>p.percha))].sort();
+  editPerchaSelect.innerHTML = perchas.map(p=>`<option value="${p}">${p}</option>`).join('') +
+    '<option value="__nueva__">+ Nueva percha…</option>';
+  editPerchaSelect.value = perchas.includes(perchaActual) ? perchaActual : '__nueva__';
+  editPerchaNueva.style.display = editPerchaSelect.value === '__nueva__' ? 'block' : 'none';
+  editPerchaNueva.value = editPerchaSelect.value === '__nueva__' ? perchaActual : '';
+}
+
+function abrirModalEdit(id){
+  const p = productos.find(x=>x.id===id);
+  if(!p) return;
+  editandoId = id;
+  editProducto.value = p.producto;
+  poblarPerchaEdit(p.percha);
+  editFila.value = p.fila || '';
+  editMedida.value = p.medida || '';
+  editStock.value = p.stock;
+  editCaducidad.value = fechaDDMMYYYYaISO(p.caducidad);
+  overlayEdit.classList.add('show');
+  editProducto.focus();
+}
+function cerrarModalEdit(){
+  overlayEdit.classList.remove('show');
+  editandoId = null;
+}
+document.getElementById('editClose').addEventListener('click', cerrarModalEdit);
+document.getElementById('editCancel').addEventListener('click', cerrarModalEdit);
+overlayEdit.addEventListener('click', e=>{ if(e.target===overlayEdit) cerrarModalEdit(); });
+
+editPerchaSelect.addEventListener('change', ()=>{
+  editPerchaNueva.style.display = editPerchaSelect.value === '__nueva__' ? 'block' : 'none';
+  if(editPerchaSelect.value === '__nueva__') editPerchaNueva.focus();
+});
+
+document.getElementById('editConfirm').addEventListener('click', ()=>{
+  const p = productos.find(x=>x.id===editandoId);
+  if(!p) return;
+
+  const nombre = editProducto.value.trim();
+  if(!nombre){ toast('Ingresa el nombre del producto'); editProducto.focus(); return; }
+
+  let percha = editPerchaSelect.value;
+  if(percha === '__nueva__') percha = editPerchaNueva.value.trim();
+  if(!percha){ toast('Elige o escribe una percha'); return; }
+
+  const stockNuevo = parseInt(editStock.value);
+  const stockFinal = isNaN(stockNuevo) ? 0 : Math.max(0, stockNuevo);
+  const stockAnterior = p.stock;
+
+  p.producto = nombre;
+  p.percha = percha;
+  p.fila = editFila.value.trim();
+  p.medida = editMedida.value.trim();
+  p.stock = stockFinal;
+  p.caducidad = fechaIsoADDMMYYYY(editCaducidad.value);
+
+  if(stockFinal !== stockAnterior){
+    const diff = stockFinal - stockAnterior;
+    historial.push({
+      id: Date.now()+Math.random(),
+      productoId: p.id,
+      producto: p.producto,
+      tipo: diff > 0 ? 'entrada' : 'salida',
+      cantidad: Math.abs(diff),
+      fecha: isoToday(),
+      nota: 'Ajuste por edición de producto',
+      ts: Date.now()
+    });
+  }
+
+  cerrarModalEdit();
+  poblarFiltroPercha();
+  render();
+  flashRow(p.id);
+  toast(`Producto actualizado: ${nombre}`);
+});
+
+document.getElementById('editDelete').addEventListener('click', ()=>{
+  const p = productos.find(x=>x.id===editandoId);
+  if(!p) return;
+  if(!confirm(`¿Eliminar «${p.producto}» de la percha ${p.percha}? Esta acción no se puede deshacer.`)) return;
+  productos = productos.filter(x=>x.id!==editandoId);
+  cerrarModalEdit();
+  poblarFiltroPercha();
+  render();
+  toast(`Producto eliminado: ${p.producto}`);
+});
+
+/* ---------------- exportar a PDF ---------------- */
+document.getElementById('btnExportPdf').addEventListener('click', ()=>{
+  if(typeof window.jspdf === 'undefined'){
+    toast('No se pudo cargar el generador de PDF. Revisa tu conexión a internet.');
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
+
+  const rows = [...productos].sort((a,b)=> a.percha.localeCompare(b.percha) || a.producto.localeCompare(b.producto));
+  const totalUnid = rows.reduce((a,p)=>a+p.stock,0);
+
+  doc.setFontSize(16);
+  doc.text('Bodega — Control de Existencias', 40, 40);
+  doc.setFontSize(10);
+  doc.setTextColor(90,90,90);
+  doc.text(`Agroinsumos · generado el ${todayStr()}`, 40, 58);
+  doc.text(`${rows.length} productos · ${totalUnid} unidades en bodega`, 40, 72);
+
+  const body = rows.map(p=>{
+    const e = estadoCaducidad(p);
+    return [
+      p.percha,
+      p.fila || '—',
+      p.producto,
+      p.medida || '—',
+      String(p.stock),
+      p.caducidad || '—',
+      e.label
+    ];
+  });
+
+  doc.autoTable({
+    startY: 88,
+    head: [['Percha','Fila','Producto','Medida','Stock','Caducidad','Estado']],
+    body,
+    styles: { font:'helvetica', fontSize:8.5, cellPadding:4 },
+    headStyles: { fillColor:[62,107,74], textColor:255, fontStyle:'bold' },
+    alternateRowStyles: { fillColor:[247,245,239] },
+    columnStyles: { 4: { halign:'center' } },
+    didParseCell: (data)=>{
+      if(data.section==='body' && data.column.index===6){
+        const val = data.cell.raw;
+        if(val==='Caducado') data.cell.styles.textColor=[165,52,42];
+        else if(val && val.startsWith('Vence en')) data.cell.styles.textColor=[166,121,31];
+      }
+    }
+  });
+
+  doc.save('bodega_inventario.pdf');
+  toast('PDF descargado: bodega_inventario.pdf');
+});
+
+/* ---------------- init ---------------- */
+document.getElementById('todayChip').textContent = todayStr();
+poblarFiltroPercha();
+render();
+</script>
+</body>
+</html>
 
